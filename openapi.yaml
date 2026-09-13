@@ -1,0 +1,1243 @@
+openapi: 3.0.3
+info:
+  title: Kanban Bro Backend API
+  version: 1.0.0
+  description: |
+    API specification for Kanban Bro, a multi-user collaborative Kanban board application.
+    Supports boards, columns, tasks, labels, members, permissions, and invitation workflows.
+
+    ### Authentication Model
+    Per project specification, the backend uses mock authentication:
+    - The client sends the authenticated user's username via the `X-Username` header (or passes `username` in relevant requests).
+    - No passwords or tokens are required; the backend trusts the provided username.
+    - Endpoints marked with `UsernameAuth` require this header. Endpoints without security (such as user listing and creation) are public.
+
+servers:
+  - url: http://localhost:8000
+    description: Local FastAPI Backend
+
+security:
+  - UsernameAuth: []
+
+paths:
+  # ==========================================
+  # USERS
+  # ==========================================
+  /api/users:
+    get:
+      summary: List all registered users
+      operationId: listUsers
+      tags:
+        - Users
+      security: []
+      description: Returns the global registry of all users for assignment dropdowns and switcher.
+      responses:
+        '200':
+          description: List of registered users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+
+    post:
+      summary: Register or get existing user
+      operationId: createUser
+      tags:
+        - Users
+      security: []
+      description: Registers a new username or retrieves an existing user profile with mock auth.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+      responses:
+        '200':
+          description: User profile created or retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid username
+
+  # ==========================================
+  # BOARDS
+  # ==========================================
+  /api/boards:
+    get:
+      summary: List boards for a user
+      operationId: listBoards
+      tags:
+        - Boards
+      security:
+        - UsernameAuth: []
+      description: |
+        Returns boards where the authenticated user (or query param user) is an owner or member.
+        Includes computed task counts and current user's role and permission.
+      parameters:
+        - name: username
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional override for target username. Defaults to authenticated X-Username.
+      responses:
+        '200':
+          description: List of accessible boards with status counts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BoardWithCounts'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      summary: Create a new board
+      operationId: createBoard
+      tags:
+        - Boards
+      security:
+        - UsernameAuth: []
+      description: Creates a board with the caller as Owner and standard columns (To Do, In Progress, Done).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BoardCreate'
+      responses:
+        '201':
+          description: Board created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Board'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/boards/{board_id}:
+    get:
+      summary: Get board by ID
+      operationId: getBoard
+      tags:
+        - Boards
+      security:
+        - UsernameAuth: []
+      parameters:
+        - $ref: '#/components/parameters/BoardId'
+      responses:
+        '200':
+          description: Board details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Board'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      summary: Update board metadata
+      operationId: updateBoard
+      tags:
+        - Boards
+      security:
+        - UsernameAuth: []
+      description: Update name or description. Requires Owner or Admin role.
+      parameters:
+        - $ref: '#/components/parameters/BoardId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BoardUpdate'
+      responses:
+        '200':
+          description: Updated board
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Board'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Delete a board
+      operationId: deleteBoard
+      tags:
+        - Boards
+      security:
+        - UsernameAuth: []
+      description: Permanently deletes the board and all associated tasks. Only the Owner can delete a board.
+      parameters:
+        - $ref: '#/components/parameters/BoardId'
+      responses:
+        '204':
+          description: Board successfully deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Only the owner can delete the board
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/boards/{board_id}/columns/{column_id}:
+    patch:
+      summary: Rename a column
+      operationId: updateColumnName
+      tags:
+        - Boards
+      security:
+        - UsernameAuth: []
+      description: Renames one of the 3 fixed columns ('todo', 'in_progress', 'done'). Requires Edit permission.
+      parameters:
+        - $ref: '#/components/parameters/BoardId'
+        - name: column_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/ColumnStatus'
+          description: Fixed column ID (todo, in_progress, done)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: Backlog
+      responses:
+        '200':
+          description: Board with renamed column
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Board'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/boards/{board_id}/labels:
+    post:
+      summary: Add a label to board
+      operationId: addBoardLabel
+      tags:
+        - Boards
+      security:
+        - UsernameAuth: []
+      description: Adds a new tag label (name + color) to the board. Requires Edit permission.
+      parameters:
+        - $ref: '#/components/parameters/BoardId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LabelCreate'
+      responses:
+        '201':
+          description: Label created and added to board
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoardLabel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==========================================
+  # MEMBERS & PERMISSIONS
+  # ==========================================
+  /api/boards/{board_id}/members/{username}:
+    patch:
+      summary: Update member role or permission
+      operationId: updateMember
+      tags:
+        - Members
+      security:
+        - UsernameAuth: []
+      description: Changes role ('admin' or 'member') and permission ('edit' or 'view'). Requires Owner or Admin role.
+      parameters:
+        - $ref: '#/components/parameters/BoardId'
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Username of member to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemberUpdate'
+      responses:
+        '200':
+          description: Member updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Board'
+        '400':
+          description: Cannot modify owner role
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Remove member from board
+      operationId: removeMember
+      tags:
+        - Members
+      security:
+        - UsernameAuth: []
+      description: Removes member from board. Requires Owner or Admin role.
+      parameters:
+        - $ref: '#/components/parameters/BoardId'
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Username of member to remove
+      responses:
+        '200':
+          description: Member removed from board
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Board'
+        '400':
+          description: Cannot remove board owner
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==========================================
+  # TASKS
+  # ==========================================
+  /api/boards/{board_id}/tasks:
+    get:
+      summary: List tasks for a board
+      operationId: listBoardTasks
+      tags:
+        - Tasks
+      security:
+        - UsernameAuth: []
+      description: Returns tasks belonging to the board, ordered by their column sequence.
+      parameters:
+        - $ref: '#/components/parameters/BoardId'
+      responses:
+        '200':
+          description: Ordered list of tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Task'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      summary: Create task on board
+      operationId: createTask
+      tags:
+        - Tasks
+      security:
+        - UsernameAuth: []
+      description: Adds a new task to the specified column. Requires Edit permission on the board.
+      parameters:
+        - $ref: '#/components/parameters/BoardId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreate'
+      responses:
+        '201':
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/tasks:
+    get:
+      summary: List tasks assigned to a user across all boards
+      operationId: listUserTasks
+      tags:
+        - Tasks
+      security:
+        - UsernameAuth: []
+      description: Feeds the "My Tasks" view across boards. Filterable by assignee username.
+      parameters:
+        - name: assignee
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Target assignee username. Defaults to authenticated user.
+      responses:
+        '200':
+          description: List of assigned tasks with associated board names
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskWithBoardName'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/tasks/{task_id}:
+    patch:
+      summary: Update task fields
+      operationId: updateTask
+      tags:
+        - Tasks
+      security:
+        - UsernameAuth: []
+      description: Update task title, description, priority, due date, assignee, labels, or URL. Automatically appends audit activity logs. Requires Edit permission.
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskUpdate'
+      responses:
+        '200':
+          description: Task updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Delete task
+      operationId: deleteTask
+      tags:
+        - Tasks
+      security:
+        - UsernameAuth: []
+      description: Removes task from board. Requires Edit permission.
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '204':
+          description: Task deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/tasks/{task_id}/move:
+    patch:
+      summary: Move and reorder task
+      operationId: moveTask
+      tags:
+        - Tasks
+      security:
+        - UsernameAuth: []
+      description: |
+        Moves task to a new column status and/or sets its order index.
+        Used by both drag-and-drop (@dnd-kit) and the fallback status changer.
+        Requires Edit permission.
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskMove'
+      responses:
+        '200':
+          description: Task moved and reordered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/tasks/{task_id}/comments:
+    post:
+      summary: Add comment to task
+      operationId: addTaskComment
+      tags:
+        - Tasks
+      security:
+        - UsernameAuth: []
+      description: Adds a user comment to the task's activity log.
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentCreate'
+      responses:
+        '201':
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskComment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==========================================
+  # INVITATIONS
+  # ==========================================
+  /api/invites:
+    get:
+      summary: List pending invitations for user
+      operationId: listInvites
+      tags:
+        - Invites
+      security:
+        - UsernameAuth: []
+      description: Lists pending invitations addressed to the user. Feeds the dashboard pending invites banner.
+      parameters:
+        - name: username
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Target invitee username. Defaults to authenticated user.
+      responses:
+        '200':
+          description: List of pending invites
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Invite'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      summary: Send board invitation
+      operationId: sendInvite
+      tags:
+        - Invites
+      security:
+        - UsernameAuth: []
+      description: |
+        Invites a user to a board.
+        - If inviter is Owner or Admin: Adds the member directly (direct_added = true).
+        - If inviter is a regular Member: Creates a pending invite (direct_added = false).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteSend'
+      responses:
+        '200':
+          description: Invitation sent or member directly added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InviteResponse'
+        '400':
+          description: Already member or invite already pending
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/invites/{invite_id}/respond:
+    post:
+      summary: Respond to pending invitation
+      operationId: respondInvite
+      tags:
+        - Invites
+      security:
+        - UsernameAuth: []
+      description: Accept or decline a pending board invitation. If accepted, user becomes a board member with 'edit' permission.
+      parameters:
+        - name: invite_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID of invitation to respond to
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteAction'
+      responses:
+        '200':
+          description: Invitation status updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [accepted, declined]
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==========================================
+  # UTILITY / RESET (DEVELOPMENT)
+  # ==========================================
+  /api/reset:
+    post:
+      summary: Reset demo database to initial seed data
+      operationId: resetDemoData
+      tags:
+        - Utility
+      security: []
+      description: Restores factory seed data for testing and demo evaluation.
+      responses:
+        '200':
+          description: Database successfully reset to defaults
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Demo data reset successfully
+
+components:
+  securitySchemes:
+    UsernameAuth:
+      type: apiKey
+      in: header
+      name: X-Username
+      description: |
+        Mock authentication header containing username (e.g., 'rafael', 'alice').
+        Backend trusts this value per project specification.
+
+  parameters:
+    BoardId:
+      name: board_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Unique identifier of the board
+
+    TaskId:
+      name: task_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Unique identifier of the task
+
+  responses:
+    BadRequest:
+      description: Bad request or validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing authentication header (X-Username)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Insufficient board permissions (e.g. view-only user attempting write)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Requested resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    # ---------------- Enums ----------------
+    Priority:
+      type: string
+      enum: [Low, Medium, High]
+      example: High
+
+    ColumnStatus:
+      type: string
+      enum: [todo, in_progress, done]
+      example: in_progress
+
+    BoardRole:
+      type: string
+      enum: [owner, admin, member]
+      example: member
+
+    BoardPermission:
+      type: string
+      enum: [edit, view]
+      example: edit
+
+    InviteStatus:
+      type: string
+      enum: [pending, accepted, declined]
+      example: pending
+
+    # ---------------- User ----------------
+    User:
+      type: object
+      required:
+        - username
+        - name
+        - avatar_color
+      properties:
+        username:
+          type: string
+          example: rafael
+        name:
+          type: string
+          example: Rafael Hoffmann
+        avatar_color:
+          type: string
+          example: '#6366f1'
+
+    UserCreate:
+      type: object
+      required:
+        - username
+      properties:
+        username:
+          type: string
+          example: sarah
+        name:
+          type: string
+          example: Sarah Connor
+        avatar_color:
+          type: string
+          example: '#ec4899'
+
+    # ---------------- Board ----------------
+    BoardColumn:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          $ref: '#/components/schemas/ColumnStatus'
+        name:
+          type: string
+          example: In Progress
+
+    BoardLabel:
+      type: object
+      required:
+        - id
+        - name
+        - color
+      properties:
+        id:
+          type: string
+          example: lbl-1
+        name:
+          type: string
+          example: Frontend
+        color:
+          type: string
+          example: '#6366f1'
+
+    LabelCreate:
+      type: object
+      required:
+        - name
+        - color
+      properties:
+        name:
+          type: string
+          example: DevOps
+        color:
+          type: string
+          example: '#f59e0b'
+
+    BoardMember:
+      type: object
+      required:
+        - username
+        - role
+        - permission
+      properties:
+        username:
+          type: string
+          example: alice
+        role:
+          $ref: '#/components/schemas/BoardRole'
+        permission:
+          $ref: '#/components/schemas/BoardPermission'
+
+    MemberUpdate:
+      type: object
+      required:
+        - role
+        - permission
+      properties:
+        role:
+          $ref: '#/components/schemas/BoardRole'
+        permission:
+          $ref: '#/components/schemas/BoardPermission'
+
+    Board:
+      type: object
+      required:
+        - id
+        - name
+        - owner
+        - columns
+        - members
+        - labels
+        - created_at
+      properties:
+        id:
+          type: string
+          example: board-1
+        name:
+          type: string
+          example: Product Launch Q4
+        description:
+          type: string
+          example: Quarterly roadmap for SaaS platform launch
+        owner:
+          type: string
+          example: rafael
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/BoardColumn'
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/BoardMember'
+        labels:
+          type: array
+          items:
+            $ref: '#/components/schemas/BoardLabel'
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-09-01T10:00:00Z'
+
+    BoardCreate:
+      type: object
+      required:
+        - name
+        - owner
+      properties:
+        name:
+          type: string
+          example: Q4 Mobile Redesign
+        description:
+          type: string
+          example: Design sprint and mobile client refactor
+        owner:
+          type: string
+          example: rafael
+
+    BoardUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Product Launch Q4 (Updated)
+        description:
+          type: string
+          example: Updated roadmap description
+
+    BoardWithCounts:
+      allOf:
+        - $ref: '#/components/schemas/Board'
+        - type: object
+          required:
+            - counts
+          properties:
+            currentUserRole:
+              $ref: '#/components/schemas/BoardRole'
+            currentUserPermission:
+              $ref: '#/components/schemas/BoardPermission'
+            counts:
+              type: object
+              required:
+                - total
+                - todo
+                - in_progress
+                - done
+              properties:
+                total:
+                  type: integer
+                  example: 8
+                todo:
+                  type: integer
+                  example: 3
+                in_progress:
+                  type: integer
+                  example: 2
+                done:
+                  type: integer
+                  example: 3
+
+    # ---------------- Task ----------------
+    TaskComment:
+      type: object
+      required:
+        - id
+        - task_id
+        - author
+        - text
+        - type
+        - created_at
+      properties:
+        id:
+          type: string
+          example: c-1
+        task_id:
+          type: string
+          example: task-1
+        author:
+          type: string
+          example: rafael
+        text:
+          type: string
+          example: Moved task from To Do to In Progress
+        type:
+          type: string
+          enum: [comment, activity]
+          example: activity
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-09-10T12:05:00Z'
+
+    CommentCreate:
+      type: object
+      required:
+        - text
+      properties:
+        author:
+          type: string
+          example: rafael
+          description: Author username. Defaults to authenticated X-Username.
+        text:
+          type: string
+          example: Reviewed the PR, ready to merge!
+
+    Task:
+      type: object
+      required:
+        - id
+        - board_id
+        - title
+        - description
+        - priority
+        - due_date
+        - assignee
+        - labels
+        - status
+        - comments
+        - order
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          example: task-1
+        board_id:
+          type: string
+          example: board-1
+        title:
+          type: string
+          example: Implement drag-and-drop board cards
+        description:
+          type: string
+          example: Wire up @dnd-kit to allow smooth dragging between columns.
+        priority:
+          $ref: '#/components/schemas/Priority'
+        due_date:
+          type: string
+          format: date
+          example: '2026-09-12'
+        assignee:
+          type: string
+          example: rafael
+        labels:
+          type: array
+          items:
+            type: string
+          example: ['lbl-1', 'lbl-3']
+        url:
+          type: string
+          format: uri
+          example: https://docs.dndkit.com
+        status:
+          $ref: '#/components/schemas/ColumnStatus'
+        comments:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskComment'
+        order:
+          type: integer
+          example: 0
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-09-08T11:00:00Z'
+        updated_at:
+          type: string
+          format: date-time
+          example: '2026-09-12T16:20:00Z'
+
+    TaskWithBoardName:
+      allOf:
+        - $ref: '#/components/schemas/Task'
+        - type: object
+          required:
+            - boardName
+          properties:
+            boardName:
+              type: string
+              example: Product Launch Q4
+
+    TaskCreate:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          example: Implement FastAPI backend
+        description:
+          type: string
+          example: Build endpoints according to openapi.yaml
+        priority:
+          $ref: '#/components/schemas/Priority'
+        due_date:
+          type: string
+          format: date
+          example: '2026-09-30'
+        assignee:
+          type: string
+          example: rafael
+        labels:
+          type: array
+          items:
+            type: string
+          example: ['lbl-1']
+        url:
+          type: string
+          format: uri
+          example: https://fastapi.tiangolo.com
+        status:
+          $ref: '#/components/schemas/ColumnStatus'
+
+    TaskUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          example: Updated title
+        description:
+          type: string
+          example: Updated description
+        priority:
+          $ref: '#/components/schemas/Priority'
+        due_date:
+          type: string
+          format: date
+          example: '2026-10-05'
+        assignee:
+          type: string
+          example: alice
+        labels:
+          type: array
+          items:
+            type: string
+          example: ['lbl-1', 'lbl-2']
+        url:
+          type: string
+          format: uri
+          example: https://github.com
+        status:
+          $ref: '#/components/schemas/ColumnStatus'
+
+    TaskMove:
+      type: object
+      required:
+        - status
+        - order
+      properties:
+        status:
+          $ref: '#/components/schemas/ColumnStatus'
+        order:
+          type: integer
+          description: Zero-based position within target column
+          example: 2
+
+    # ---------------- Invites ----------------
+    Invite:
+      type: object
+      required:
+        - id
+        - board_id
+        - board_name
+        - inviter
+        - invitee
+        - status
+        - created_at
+      properties:
+        id:
+          type: string
+          example: inv-1
+        board_id:
+          type: string
+          example: board-1
+        board_name:
+          type: string
+          example: Product Launch Q4
+        inviter:
+          type: string
+          example: bob
+        invitee:
+          type: string
+          example: david
+        status:
+          $ref: '#/components/schemas/InviteStatus'
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-09-12T15:30:00Z'
+
+    InviteSend:
+      type: object
+      required:
+        - board_id
+        - inviter
+        - invitee
+      properties:
+        board_id:
+          type: string
+          example: board-1
+        inviter:
+          type: string
+          example: rafael
+        invitee:
+          type: string
+          example: david
+
+    InviteResponse:
+      type: object
+      required:
+        - direct_added
+        - message
+      properties:
+        direct_added:
+          type: boolean
+          example: true
+          description: True if inviter is Owner/Admin and invitee was added immediately
+        message:
+          type: string
+          example: Added @david directly as a member.
+
+    InviteAction:
+      type: object
+      required:
+        - accept
+      properties:
+        accept:
+          type: boolean
+          example: true
+
+    # ---------------- Error ----------------
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          example: Operation not permitted
