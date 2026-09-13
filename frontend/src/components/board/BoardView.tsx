@@ -111,6 +111,8 @@ export const BoardView: React.FC<BoardViewProps> = ({
     fetchBoardData();
   }, [boardId]);
 
+  if (!currentUser) return null;
+
   // Determine user permissions for this board
   const isOwner = board?.owner === currentUser.username;
   const currentMember = board?.members.find((m) => m.username === currentUser.username);

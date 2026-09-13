@@ -3,7 +3,7 @@ import { api } from '../services/api';
 import type { User } from '../types';
 
 interface AuthContextType {
-  currentUser: User;
+  currentUser: User | null;
   allUsers: User[];
   switchUser: (username: string) => Promise<void>;
   createUser: (username: string, name: string) => Promise<User>;
@@ -22,11 +22,7 @@ const CURRENT_USER_KEY = 'kanban_bro_current_username';
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User>({
-    username: 'rafael',
-    name: 'Rafael Hoffmann',
-    avatar_color: '#6366f1',
-  });
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [currentView, setCurrentView] = useState<'dashboard' | 'board' | 'my-tasks'>('dashboard');
   const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
@@ -40,13 +36,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const users = await api.users.list();
         setAllUsers(users);
 
-        const savedUsername = localStorage.getItem(CURRENT_USER_KEY) || 'rafael';
-        const found = users.find((u) => u.username === savedUsername.toLowerCase());
-        if (found) {
-          setCurrentUser(found);
-        } else if (users.length > 0) {
-          setCurrentUser(users[0]);
-          localStorage.setItem(CURRENT_USER_KEY, users[0].username);
+        if (users.length === 0) {
+          setCurrentUser(null);
+          localStorage.removeItem(CURRENT_USER_KEY);
+        } else {
+          const savedUsername = localStorage.getItem(CURRENT_USER_KEY);
+          const found = savedUsername ? users.find((u) => u.username === savedUsername.toLowerCase()) : null;
+          if (found) {
+            setCurrentUser(found);
+          } else {
+            setCurrentUser(users[0]);
+            localStorage.setItem(CURRENT_USER_KEY, users[0].username);
+          }
         }
       } catch (err) {
         console.error('Failed to load initial auth state', err);
@@ -83,9 +84,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await api.resetAll();
     await refreshUsers();
     const users = await api.users.list();
-    const defaultUser = users.find((u) => u.username === 'rafael') || users[0];
-    setCurrentUser(defaultUser);
-    localStorage.setItem(CURRENT_USER_KEY, defaultUser.username);
+    if (users.length > 0) {
+      const defaultUser = users.find((u) => u.username === 'rafael') || users[0];
+      setCurrentUser(defaultUser);
+      localStorage.setItem(CURRENT_USER_KEY, defaultUser.username);
+    } else {
+      setCurrentUser(null);
+      localStorage.removeItem(CURRENT_USER_KEY);
+    }
     setActiveBoardId(null);
     setCurrentView('dashboard');
   };

@@ -24,9 +24,9 @@ export interface BoardWithCounts extends Board {
 
 function getActiveUsername(): string {
   try {
-    return localStorage.getItem(CURRENT_USER_KEY) || 'rafael';
+    return localStorage.getItem(CURRENT_USER_KEY) || '';
   } catch {
-    return 'rafael';
+    return '';
   }
 }
 

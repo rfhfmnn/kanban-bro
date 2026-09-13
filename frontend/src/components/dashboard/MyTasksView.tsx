@@ -27,10 +27,12 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({ onSelectTask }) => {
   const [filter, setFilter] = useState<'all' | 'pending' | 'overdue' | 'done'>('all');
 
   useEffect(() => {
+    if (!currentUser) return;
+    const user = currentUser;
     async function fetchTasks() {
       setLoading(true);
       try {
-        const userTasks = await api.tasks.listByUser(currentUser.username);
+        const userTasks = await api.tasks.listByUser(user.username);
         setTasks(userTasks);
       } catch (e) {
         console.error('Failed to load user tasks', e);
@@ -39,7 +41,9 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({ onSelectTask }) => {
       }
     }
     fetchTasks();
-  }, [currentUser.username]);
+  }, [currentUser?.username]);
+
+  if (!currentUser) return null;
 
   const today = new Date().toISOString().split('T')[0];
 

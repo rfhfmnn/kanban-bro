@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { WelcomeSetup } from './components/auth/WelcomeSetup';
 import { BoardView } from './components/board/BoardView';
 import { CreateBoardModal } from './components/dashboard/CreateBoardModal';
 import { DashboardView } from './components/dashboard/DashboardView';
@@ -8,6 +9,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 
 const MainLayout: React.FC = () => {
   const {
+    currentUser,
     currentView,
     setCurrentView,
     activeBoardId,
@@ -17,6 +19,10 @@ const MainLayout: React.FC = () => {
   } = useAuth();
 
   const [isCreateBoardOpen, setIsCreateBoardOpen] = useState(false);
+
+  if (!currentUser) {
+    return <WelcomeSetup />;
+  }
 
   const handleSelectBoard = (boardId: string) => {
     setActiveBoardId(boardId);

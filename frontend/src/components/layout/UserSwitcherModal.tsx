@@ -66,7 +66,7 @@ export const UserSwitcherModal: React.FC<UserSwitcherModalProps> = ({ isOpen, on
           </div>
           <div className="grid grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1">
             {allUsers.map((user) => {
-              const isActive = user.username === currentUser.username;
+              const isActive = currentUser ? user.username === currentUser.username : false;
               return (
                 <button
                   key={user.username}

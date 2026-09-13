@@ -32,11 +32,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateBoardClick }) => {
   const [isBoardDropdownOpen, setIsBoardDropdownOpen] = useState(false);
 
   useEffect(() => {
+    if (!currentUser) return;
+    const user = currentUser;
     async function loadData() {
       try {
         const [boards, invites] = await Promise.all([
-          api.boards.list(currentUser.username),
-          api.invites.list(currentUser.username),
+          api.boards.list(user.username),
+          api.invites.list(user.username),
         ]);
         setUserBoards(boards);
         setPendingInvitesCount(invites.length);
@@ -47,7 +49,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onCreateBoardClick }) => {
     loadData();
     const interval = setInterval(loadData, 4000);
     return () => clearInterval(interval);
-  }, [currentUser.username, activeBoardId]);
+  }, [currentUser?.username, activeBoardId]);
+
+  if (!currentUser) return null;
 
   const activeBoard = userBoards.find((b) => b.id === activeBoardId);
 

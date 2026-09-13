@@ -27,6 +27,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [loading, setLoading] = useState(true);
 
   const loadDashboardData = async () => {
+    if (!currentUser) return;
     try {
       const [userBoards, userInvites] = await Promise.all([
         api.boards.list(currentUser.username),
@@ -43,7 +44,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   useEffect(() => {
     loadDashboardData();
-  }, [currentUser.username]);
+  }, [currentUser?.username]);
+
+  if (!currentUser) return null;
 
   const handleRespondInvite = async (inviteId: string, accept: boolean) => {
     try {

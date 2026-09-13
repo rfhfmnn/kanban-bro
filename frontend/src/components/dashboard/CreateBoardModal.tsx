@@ -22,7 +22,7 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
+    if (!name.trim() || !currentUser) {
       setError('Board title is required.');
       return;
     }
@@ -40,6 +40,8 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
       setLoading(false);
     }
   };
+
+  if (!currentUser) return null;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Create New Board">

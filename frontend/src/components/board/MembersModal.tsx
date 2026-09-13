@@ -30,6 +30,8 @@ export const MembersModal: React.FC<MembersModalProps> = ({
   onBoardDeleted,
 }) => {
   const { currentUser } = useAuth();
+  if (!currentUser) return null;
+
   const [inviteUsername, setInviteUsername] = useState('');
   const [inviteFeedback, setInviteFeedback] = useState<{
     type: 'success' | 'error';
