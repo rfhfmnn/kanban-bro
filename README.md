@@ -47,6 +47,8 @@ uv run pytest
 
 ## 📊 System Architecture & Flow
 
+![Kanban Bro Technical Architecture & Workflow](docs/architecture.jpg)
+
 ### 1. High-Level Architecture
 ```mermaid
 graph TD
