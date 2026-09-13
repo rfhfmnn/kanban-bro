@@ -1,0 +1,299 @@
+import copy
+import threading
+from datetime import datetime
+from typing import Dict, List, Optional
+from app.models.schemas import (
+    Board,
+    BoardColumn,
+    BoardLabel,
+    BoardMember,
+    ColumnStatus,
+    Invite,
+    InviteStatus,
+    Priority,
+    Task,
+    TaskComment,
+    User,
+)
+
+# Seed Users
+INITIAL_USERS: List[Dict] = [
+    {"username": "rafael", "name": "Rafael Hoffmann", "avatar_color": "#6366f1"},
+    {"username": "alice", "name": "Alice Chen", "avatar_color": "#ec4899"},
+    {"username": "bob", "name": "Bob Martinez", "avatar_color": "#10b981"},
+    {"username": "clara", "name": "Clara Oswald", "avatar_color": "#f59e0b"},
+    {"username": "david", "name": "David Kim", "avatar_color": "#06b6d4"},
+]
+
+# Seed Boards
+INITIAL_BOARDS: List[Dict] = [
+    {
+        "id": "board-1",
+        "name": "Product Launch Q4",
+        "description": "Quarterly roadmap for SaaS platform launch and onboarding flows",
+        "owner": "rafael",
+        "columns": [
+            {"id": "todo", "name": "To Do"},
+            {"id": "in_progress", "name": "In Progress"},
+            {"id": "done", "name": "Done"},
+        ],
+        "members": [
+            {"username": "rafael", "role": "owner", "permission": "edit"},
+            {"username": "alice", "role": "admin", "permission": "edit"},
+            {"username": "bob", "role": "member", "permission": "edit"},
+            {"username": "clara", "role": "member", "permission": "view"},
+        ],
+        "labels": [
+            {"id": "lbl-1", "name": "Frontend", "color": "#6366f1"},
+            {"id": "lbl-2", "name": "Backend", "color": "#10b981"},
+            {"id": "lbl-3", "name": "Design", "color": "#ec4899"},
+            {"id": "lbl-4", "name": "Urgent Bug", "color": "#ef4444"},
+            {"id": "lbl-5", "name": "Docs", "color": "#06b6d4"},
+        ],
+        "created_at": "2026-09-01T10:00:00Z",
+    },
+    {
+        "id": "board-2",
+        "name": "DevOps & Reliability",
+        "description": "Infrastructure scaling, automated observability, and cloud migration",
+        "owner": "alice",
+        "columns": [
+            {"id": "todo", "name": "Backlog"},
+            {"id": "in_progress", "name": "Active"},
+            {"id": "done", "name": "Shipped"},
+        ],
+        "members": [
+            {"username": "alice", "role": "owner", "permission": "edit"},
+            {"username": "rafael", "role": "member", "permission": "edit"},
+            {"username": "bob", "role": "member", "permission": "view"},
+        ],
+        "labels": [
+            {"id": "lbl-devops", "name": "DevOps", "color": "#f59e0b"},
+            {"id": "lbl-security", "name": "Security", "color": "#ef4444"},
+            {"id": "lbl-infra", "name": "Infra", "color": "#8b5cf6"},
+        ],
+        "created_at": "2026-09-05T14:30:00Z",
+    },
+    {
+        "id": "board-3",
+        "name": "Rafael’s Personal Brainstorm",
+        "description": "Solo ideas, learning notes, and personal milestones",
+        "owner": "rafael",
+        "columns": [
+            {"id": "todo", "name": "Ideas"},
+            {"id": "in_progress", "name": "Tinkering"},
+            {"id": "done", "name": "Concluded"},
+        ],
+        "members": [
+            {"username": "rafael", "role": "owner", "permission": "edit"},
+        ],
+        "labels": [
+            {"id": "lbl-p1", "name": "Learning", "color": "#10b981"},
+            {"id": "lbl-p2", "name": "Side Project", "color": "#6366f1"},
+        ],
+        "created_at": "2026-09-10T09:15:00Z",
+    },
+]
+
+# Seed Tasks
+INITIAL_TASKS: List[Dict] = [
+    {
+        "id": "task-1",
+        "board_id": "board-1",
+        "title": "Implement drag-and-drop board cards",
+        "description": "Wire up @dnd-kit to allow smooth dragging between columns with clear drop hints.",
+        "priority": "High",
+        "due_date": "2026-09-12",
+        "assignee": "rafael",
+        "labels": ["lbl-1", "lbl-3"],
+        "url": "https://docs.dndkit.com",
+        "status": "in_progress",
+        "order": 0,
+        "created_at": "2026-09-08T11:00:00Z",
+        "updated_at": "2026-09-12T16:20:00Z",
+        "comments": [
+            {
+                "id": "c-1",
+                "task_id": "task-1",
+                "author": "rafael",
+                "text": "Started integration with SortableContext.",
+                "type": "comment",
+                "created_at": "2026-09-10T12:00:00Z",
+            },
+            {
+                "id": "c-2",
+                "task_id": "task-1",
+                "author": "rafael",
+                "text": "Moved task from To Do to In Progress",
+                "type": "activity",
+                "created_at": "2026-09-10T12:05:00Z",
+            },
+        ],
+    },
+    {
+        "id": "task-2",
+        "board_id": "board-1",
+        "title": "Design user onboarding flow",
+        "description": "Produce high fidelity mockups in Figma for invite acceptance and workspace tour.",
+        "priority": "Medium",
+        "due_date": "2026-09-15",
+        "assignee": "alice",
+        "labels": ["lbl-3"],
+        "url": "",
+        "status": "todo",
+        "order": 0,
+        "created_at": "2026-09-09T09:00:00Z",
+        "updated_at": "2026-09-09T09:00:00Z",
+        "comments": [],
+    },
+    {
+        "id": "task-3",
+        "board_id": "board-1",
+        "title": "Security audit for invitation tokens",
+        "description": "Ensure pending invitations can only be accepted by the intended recipient.",
+        "priority": "High",
+        "due_date": "2026-09-11",
+        "assignee": "bob",
+        "labels": ["lbl-2", "lbl-4"],
+        "url": "",
+        "status": "todo",
+        "order": 1,
+        "created_at": "2026-09-09T14:10:00Z",
+        "updated_at": "2026-09-09T14:10:00Z",
+        "comments": [],
+    },
+    {
+        "id": "task-4",
+        "board_id": "board-1",
+        "title": "Set up Vite + Tailwind CSS design system",
+        "description": "Configure fonts, dark glassmorphism layout, and base color tokens.",
+        "priority": "Low",
+        "due_date": "2026-09-10",
+        "assignee": "rafael",
+        "labels": ["lbl-1"],
+        "url": "",
+        "status": "done",
+        "order": 0,
+        "created_at": "2026-09-05T08:00:00Z",
+        "updated_at": "2026-09-10T17:00:00Z",
+        "comments": [
+            {
+                "id": "c-3",
+                "task_id": "task-4",
+                "author": "rafael",
+                "text": "Completed setup and tested on Firefox & Chrome.",
+                "type": "comment",
+                "created_at": "2026-09-10T16:50:00Z",
+            },
+            {
+                "id": "c-4",
+                "task_id": "task-4",
+                "author": "rafael",
+                "text": "Moved task from In Progress to Done",
+                "type": "activity",
+                "created_at": "2026-09-10T17:00:00Z",
+            },
+        ],
+    },
+    {
+        "id": "task-5",
+        "board_id": "board-1",
+        "title": "Write API contract documentation",
+        "description": "Document endpoints, request parameters, and response schemas.",
+        "priority": "Medium",
+        "due_date": "2026-09-18",
+        "assignee": "rafael",
+        "labels": ["lbl-5", "lbl-2"],
+        "url": "",
+        "status": "in_progress",
+        "order": 1,
+        "created_at": "2026-09-10T10:30:00Z",
+        "updated_at": "2026-09-11T11:00:00Z",
+        "comments": [],
+    },
+    {
+        "id": "task-6",
+        "board_id": "board-2",
+        "title": "Configure automated DB backup cron",
+        "description": "Set up snapshot retention rules and test restore procedures in staging.",
+        "priority": "High",
+        "due_date": "2026-09-14",
+        "assignee": "rafael",
+        "labels": ["lbl-devops", "lbl-security"],
+        "url": "",
+        "status": "todo",
+        "order": 0,
+        "created_at": "2026-09-11T13:00:00Z",
+        "updated_at": "2026-09-11T13:00:00Z",
+        "comments": [],
+    },
+    {
+        "id": "task-7",
+        "board_id": "board-2",
+        "title": "Zero-downtime deployment runner",
+        "description": "Implement rolling restart logic for container nodes.",
+        "priority": "Medium",
+        "due_date": "2026-09-16",
+        "assignee": "alice",
+        "labels": ["lbl-infra"],
+        "url": "",
+        "status": "in_progress",
+        "order": 0,
+        "created_at": "2026-09-10T15:00:00Z",
+        "updated_at": "2026-09-11T09:00:00Z",
+        "comments": [],
+    },
+    {
+        "id": "task-8",
+        "board_id": "board-3",
+        "title": "Read paper on distributed consensus algorithms",
+        "description": "Take notes on Raft election timeouts and log compaction.",
+        "priority": "Low",
+        "due_date": "2026-09-20",
+        "assignee": "rafael",
+        "labels": ["lbl-p1"],
+        "url": "",
+        "status": "todo",
+        "order": 0,
+        "created_at": "2026-09-12T09:00:00Z",
+        "updated_at": "2026-09-12T09:00:00Z",
+        "comments": [],
+    },
+]
+
+# Seed Invites
+INITIAL_INVITES: List[Dict] = [
+    {
+        "id": "inv-1",
+        "board_id": "board-2",
+        "board_name": "DevOps & Reliability",
+        "inviter": "alice",
+        "invitee": "david",
+        "status": "pending",
+        "created_at": "2026-09-12T14:00:00Z",
+    },
+    {
+        "id": "inv-2",
+        "board_id": "board-1",
+        "board_name": "Product Launch Q4",
+        "inviter": "bob",
+        "invitee": "david",
+        "status": "pending",
+        "created_at": "2026-09-12T15:30:00Z",
+    },
+]
+
+class MockDatabase:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self.reset()
+
+    def reset(self):
+        with self._lock:
+            self.users = copy.deepcopy(INITIAL_USERS)
+            self.boards = copy.deepcopy(INITIAL_BOARDS)
+            self.tasks = copy.deepcopy(INITIAL_TASKS)
+            self.invites = copy.deepcopy(INITIAL_INVITES)
+
+# Global singleton
+db = MockDatabase()
