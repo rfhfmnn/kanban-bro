@@ -14,36 +14,47 @@ test.describe('Kanban Bro - Docker Compose End-to-End Workflow', () => {
     // -------------------------------------------------------------
     // Step 1: Log in / Select or Create User Profile
     // -------------------------------------------------------------
-    await test.step('1. Log in via user switcher', async () => {
+    await test.step('1. Log in via user switcher or welcome setup', async () => {
       await page.goto('/');
 
-      // Wait for page to initialize and verify branding is displayed
-      await expect(page.getByText('KanbanBro')).toBeVisible();
+      // Check if fresh zero-state welcome setup is displayed
+      const welcomeHeading = page.getByText('Welcome to Kanban Bro');
+      const isWelcome = await welcomeHeading.isVisible({ timeout: 2000 }).catch(() => false);
 
-      // Click user profile button in the top navbar
-      const userPill = page.locator('button[title*="switch or create mock user profile"]');
-      await expect(userPill).toBeVisible();
-      await userPill.click();
+      if (isWelcome) {
+        await page.locator('input[placeholder="e.g. Alex Smith"]').fill(testUser.name);
+        await page.locator('input[placeholder="e.g. asmith"]').fill(testUser.username);
+        await page.getByRole('button', { name: 'Create Account & Start Fresh' }).click();
+      } else {
+        // Wait for page to initialize and verify branding is displayed
+        await expect(page.getByText('KanbanBro')).toBeVisible();
 
-      // Modal should appear
-      await expect(page.getByText('Switch or Create Mock User')).toBeVisible();
+        // Click user profile button in the top navbar
+        const userPill = page.locator('button[title*="switch or create mock user profile"]');
+        await expect(userPill).toBeVisible();
+        await userPill.click();
 
-      // Click "Create new user"
-      const createNewUserBtn = page.getByRole('button', { name: 'Create new user' });
-      await expect(createNewUserBtn).toBeVisible();
-      await createNewUserBtn.click();
+        // Modal should appear
+        await expect(page.getByText('Switch or Create Mock User')).toBeVisible();
 
-      // Fill in user details
-      await page.locator('input[placeholder="e.g. sarah"]').fill(testUser.username);
-      await page.locator('input[placeholder="e.g. Sarah Connor"]').fill(testUser.name);
+        // Click "Create new user"
+        const createNewUserBtn = page.getByRole('button', { name: 'Create new user' });
+        await expect(createNewUserBtn).toBeVisible();
+        await createNewUserBtn.click();
 
-      // Submit "Create & Login"
-      await page.getByRole('button', { name: 'Create & Login' }).click();
+        // Fill in user details
+        await page.locator('input[placeholder="e.g. sarah"]').fill(testUser.username);
+        await page.locator('input[placeholder="e.g. Sarah Connor"]').fill(testUser.name);
 
-      // Verify the user switcher modal closed
-      await expect(page.getByText('Switch or Create Mock User')).not.toBeVisible();
+        // Submit "Create & Login"
+        await page.getByRole('button', { name: 'Create & Login' }).click();
+
+        // Verify the user switcher modal closed
+        await expect(page.getByText('Switch or Create Mock User')).not.toBeVisible();
+      }
 
       // Verify user pill updated to display the logged-in username
+      const userPill = page.locator('button[title*="switch or create mock user profile"]');
       await expect(userPill).toContainText(`@${testUser.username}`);
 
       // Verify dashboard welcome banner acknowledges the user

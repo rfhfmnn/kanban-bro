@@ -29,7 +29,7 @@ ENV PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     STATIC_DIR=/app/backend/static \
-    AUTO_SEED=true
+    AUTO_SEED=false
 
 # Cache and install backend dependencies
 COPY backend/pyproject.toml backend/uv.lock ./

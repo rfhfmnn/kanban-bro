@@ -26,7 +26,7 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://sdip:sdip@postgres:5432/sdip
-      AUTO_SEED: "true"
+      AUTO_SEED: "false"
     ports:
       - "8000:8000"
     depends_on:

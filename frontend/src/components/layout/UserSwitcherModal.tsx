@@ -44,7 +44,7 @@ export const UserSwitcherModal: React.FC<UserSwitcherModalProps> = ({ isOpen, on
   };
 
   const handleReset = async () => {
-    if (window.confirm('Reset all demo data (boards, tasks, users, invites) to original factory state?')) {
+    if (window.confirm('Wipe all data and reset the database to zero (0 users, 0 boards)?')) {
       setLoading(true);
       await resetAllData();
       setLoading(false);
@@ -117,10 +117,10 @@ export const UserSwitcherModal: React.FC<UserSwitcherModalProps> = ({ isOpen, on
               onClick={handleReset}
               disabled={loading}
               className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-rose-400 transition-colors py-1"
-              title="Restores seed data"
+              title="Wipes all boards and profiles to zero"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              Reset Demo Data
+              Wipe Database to Zero
             </button>
           </div>
         ) : (

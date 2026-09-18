@@ -17,18 +17,22 @@ from app.db.models import (
     UserModel,
 )
 
+def wipe_database(db: Session):
+    """Completely wipe all data from the database (0 users, 0 boards, 0 tasks)."""
+    db.query(TaskCommentModel).delete()
+    db.query(TaskModel).delete()
+    db.query(BoardLabelModel).delete()
+    db.query(BoardMemberModel).delete()
+    db.query(BoardColumnModel).delete()
+    db.query(BoardModel).delete()
+    db.query(InviteModel).delete()
+    db.query(UserModel).delete()
+    db.commit()
+
 def seed_database(db: Session, force_reset: bool = False):
     """Seed initial data into the database if empty or force_reset is True."""
     if force_reset:
-        db.query(TaskCommentModel).delete()
-        db.query(TaskModel).delete()
-        db.query(BoardLabelModel).delete()
-        db.query(BoardMemberModel).delete()
-        db.query(BoardColumnModel).delete()
-        db.query(BoardModel).delete()
-        db.query(InviteModel).delete()
-        db.query(UserModel).delete()
-        db.commit()
+        wipe_database(db)
 
     # Check if already seeded
     existing_user = db.query(UserModel).first()

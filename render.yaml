@@ -20,6 +20,6 @@ services:
           name: kanban-postgres
           property: connectionString
       - key: AUTO_SEED
-        value: "true"
+        value: "false"
       - key: PORT
         value: "8000"

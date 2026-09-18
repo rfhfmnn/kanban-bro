@@ -6,19 +6,34 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from app.db.database import Base, SessionLocal, engine
-from app.db.seed import seed_database
+from app.db.models import UserModel
+from app.db.seed import seed_database, wipe_database
 from app.routers import boards, invites, members, tasks, users, utility
+
+DEMO_USERNAMES = {"rafael", "alice", "bob", "clara", "david"}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: create tables
     Base.metadata.create_all(bind=engine)
-    if os.getenv("AUTO_SEED", "false").lower() in ("true", "1", "yes"):
-        db = SessionLocal()
-        try:
+    
+    auto_seed = os.getenv("AUTO_SEED", "false").lower() in ("true", "1", "yes")
+    wipe_on_startup = os.getenv("WIPE_ON_STARTUP", "false").lower() in ("true", "1", "yes")
+
+    db = SessionLocal()
+    try:
+        if wipe_on_startup:
+            wipe_database(db)
+        elif auto_seed:
             seed_database(db)
-        finally:
-            db.close()
+        else:
+            # When AUTO_SEED is disabled, ensure any previous example/demo seed data
+            # is purged so that the database starts completely fresh at zero (0 users, 0 boards).
+            existing_users = db.query(UserModel).all()
+            if existing_users and all(u.username in DEMO_USERNAMES for u in existing_users):
+                wipe_database(db)
+    finally:
+        db.close()
     yield
     # Shutdown: clean up if needed
 

@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { Kanban, Sparkles, UserPlus } from 'lucide-react';
+import { Kanban, UserPlus } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export const WelcomeSetup: React.FC = () => {
-  const { createUser, resetAllData } = useAuth();
+  const { createUser } = useAuth();
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
-  const [loadingDemo, setLoadingDemo] = useState(false);
   const [error, setError] = useState('');
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -24,18 +23,6 @@ export const WelcomeSetup: React.FC = () => {
       setError(err.message || 'Failed to create user account.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleLoadDemo = async () => {
-    setError('');
-    setLoadingDemo(true);
-    try {
-      await resetAllData();
-    } catch (err: any) {
-      setError(err.message || 'Failed to load demo data.');
-    } finally {
-      setLoadingDemo(false);
     }
   };
 
@@ -89,25 +76,13 @@ export const WelcomeSetup: React.FC = () => {
 
           <button
             type="submit"
-            disabled={loading || loadingDemo}
+            disabled={loading}
             className="w-full mt-2 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium text-sm rounded-xl transition-all shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2"
           >
             <UserPlus className="w-4 h-4" />
             {loading ? 'Creating user profile...' : 'Create Account & Start Fresh'}
           </button>
         </form>
-
-        <div className="mt-6 pt-6 border-t border-slate-800/80 text-center">
-          <button
-            type="button"
-            onClick={handleLoadDemo}
-            disabled={loading || loadingDemo}
-            className="text-xs text-indigo-400 hover:text-indigo-300 disabled:opacity-50 font-medium transition-colors inline-flex items-center gap-1.5"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            {loadingDemo ? 'Loading demo starter data...' : 'Or populate sample demo data (boards & tasks)'}
-          </button>
-        </div>
       </div>
     </div>
   );
