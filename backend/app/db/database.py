@@ -17,8 +17,8 @@ for p in env_paths:
 
 def get_database_url() -> str:
     """Resolve database URL from environment variables, supporting PostgreSQL and SQLite."""
-    # 1. Explicit DATABASE_URL
-    url = os.getenv("DATABASE_URL")
+    # 1. Explicit DATABASE_URL or SDIP_DATABASE_URL
+    url = os.getenv("DATABASE_URL") or os.getenv("SDIP_DATABASE_URL")
     if url:
         # Standardize postgres:// to postgresql:// for SQLAlchemy compatibility
         if url.startswith("postgres://"):
