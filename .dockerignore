@@ -1,0 +1,26 @@
+.git
+.gitignore
+.github
+*.md
+.pytest_cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Frontend build artifacts and local dependencies
+frontend/node_modules
+frontend/dist
+
+# Backend virtual environments and databases
+backend/.venv
+backend/.pytest_cache
+backend/__pycache__
+backend/kanban.db
+backend/static
+
+# Project docs and local scripts
+_docs
+docs
+*.bat
+*.sh
