@@ -164,7 +164,7 @@ def create_board(
     ]
     for idx, (lbl_name, lbl_color) in enumerate(default_labels, 1):
         db.add(BoardLabelModel(
-            id=f"lbl-{int(time.time())}-{idx}",
+            id=f"{board_id}_lbl_{idx}",
             board_id=board_id,
             name=lbl_name,
             color=lbl_color,
