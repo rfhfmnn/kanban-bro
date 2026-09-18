@@ -30,8 +30,36 @@ docker build -t kanban-bro:latest .
 docker run --rm -p 8000:8000 --name kanban-bro kanban-bro:latest
 ```
 
-### 3. Persistent Database (Optional)
-To persist the SQLite database across container restarts:
+### 3. Database Options (SQLite or PostgreSQL)
+
+#### Option A: PostgreSQL with Existing Container
+If you already launched the PostgreSQL container (`interview-canvas-db`):
+```bash
+docker run -d \
+  --name interview-canvas-db \
+  -e POSTGRES_USER=sdip \
+  -e POSTGRES_PASSWORD=sdip \
+  -e POSTGRES_DB=sdip \
+  -p 5432:5432 \
+  -v interview-canvas-pgdata:/var/lib/postgresql/data \
+  postgres:16-alpine
+```
+
+Connect the Kanban Bro container to it:
+```bash
+# Connect to host Postgres (Linux / macOS / Windows Docker Desktop)
+docker run --rm -p 8000:8000 \
+  -e DATABASE_URL=postgresql://sdip:sdip@host.docker.internal:5432/sdip \
+  --name kanban-bro kanban-bro:latest
+```
+
+#### Option B: One-Command Docker Compose (App + Postgres)
+Run both the app and PostgreSQL together:
+```bash
+docker compose up -d
+```
+
+#### Option C: Persistent SQLite
 ```bash
 # Linux / macOS / Git Bash
 docker run --rm -p 8000:8000 \
@@ -50,7 +78,7 @@ docker run --rm -p 8000:8000 `
 
 ### 4. Access the Application
 - **Web Application & Frontend**: http://localhost:8000
-- **API Health Check**: http://localhost:8000/api/health
+- **API Health Check**: http://localhost:8000/api/health (shows database engine)
 - **Interactive Swagger Docs**: http://localhost:8000/docs
 
 
@@ -60,10 +88,23 @@ docker run --rm -p 8000:8000 `
 ```bash
 cd backend
 uv sync
+
+# Run with default SQLite:
+uv run uvicorn app.main:app --port 8000 --reload
+
+# Or run with PostgreSQL:
+# (Set DATABASE_URL or configure .env)
+# Linux/macOS:
+export DATABASE_URL="postgresql://sdip:sdip@localhost:5432/sdip"
+uv run uvicorn app.main:app --port 8000 --reload
+
+# Windows PowerShell:
+$env:DATABASE_URL="postgresql://sdip:sdip@localhost:5432/sdip"
 uv run uvicorn app.main:app --port 8000 --reload
 ```
 - API URL: http://localhost:8000
 - Interactive Swagger Docs: http://localhost:8000/docs
+- Database Reset & Seed Script: `uv run python reset_db.py`
 
 ### 2. Frontend (React + Vite)
 ```bash
@@ -110,7 +151,7 @@ graph TD
 
     subgraph Storage ["Database Layer"]
         ORM["SQLAlchemy ORM Models"]
-        DB[("SQLite Database\n(backend/kanban.db)")]
+        DB[("Database (PostgreSQL / SQLite)\n(psycopg2 / kanban.db)")]
         Routers --> ORM
         ORM --> DB
     end

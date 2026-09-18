@@ -48,7 +48,12 @@ app.include_router(utility.router)
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "ok", "app": "Kanban Bro API", "persistence": "SQLAlchemy"}
+    return {
+        "status": "ok",
+        "app": "Kanban Bro API",
+        "persistence": "SQLAlchemy",
+        "database": engine.dialect.name,
+    }
 
 def get_static_dir() -> Path | None:
     # 1. Explicit env var
