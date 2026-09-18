@@ -214,3 +214,25 @@ sequenceDiagram
     DB-->>Server: Commit transaction
     Server-->>Board: 200 OK (Updated task)
 ```
+
+---
+
+## 🔄 CI/CD Pipeline & Render Deployment
+
+Kanban Bro features an automated GitHub Actions CI/CD workflow in [`.github/workflows/ci-cd.yaml`](.github/workflows/ci-cd.yaml):
+
+1. **Parallel Unit Tests**:
+   - **Backend**: Runs Python 3.12 unit tests using `uv` and `pytest`.
+   - **Frontend**: Runs TypeScript compilation, Vite production build, and `vitest` unit tests.
+2. **Integration & End-to-End Tests**:
+   - Starts the full stack via `docker compose up -d --build`.
+   - Waits for `/api/health` with PostgreSQL database connectivity.
+   - Runs backend integration tests (`test_compose_integration.py`, `test_postgres_live.py`, `test_two_session_live.py`).
+   - Runs Playwright browser tests in Chromium against the live container.
+   - Automatically tears down the stack with `docker compose down -v`.
+3. **Continuous Deployment to Render**:
+   - Deploys on pushes to `main` via Render Deploy Hook (`RENDER_DEPLOY_HOOK_URL`) or Render native GitHub connection.
+4. **Health Endpoint Validation**:
+   - Automatically polls `https://<RENDER_APP_URL>/api/health` (default: `https://kanban-bro.onrender.com/api/health`) until HTTP 200 and `{"status": "ok"}` are verified.
+
+See the [Render Deployment Guide](docs/render-deployment.md) for step-by-step instructions.
