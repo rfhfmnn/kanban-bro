@@ -12,9 +12,47 @@ Run the single bash script at the root:
 *(Press `Ctrl+C` in the terminal to stop both services cleanly).*
 
 ### Option 2: Windows Batch (File Explorer)
-Double-click [run.bat](file:///c:/Users/rafah/Documents/ML/ai-dev-tools-zoomcamp/kanban-bro/run.bat) in the root directory. It will launch both services in dedicated terminals and automatically open `http://localhost:5173` in your browser.
+Double-click [run.bat](run.bat) in the root directory. It will launch both services in dedicated terminals and automatically open `http://localhost:5173` in your browser.
 
 ---
+
+## 🐳 Docker (Full-Stack Container)
+
+You can build and run the entire application (both frontend and backend) in a single container using the multi-stage `Dockerfile`. The backend compiles the frontend with Node and serves both the static assets and the API on port 8000.
+
+### 1. Build the Docker Image
+```bash
+docker build -t kanban-bro:latest .
+```
+
+### 2. Run the Container
+```bash
+docker run --rm -p 8000:8000 --name kanban-bro kanban-bro:latest
+```
+
+### 3. Persistent Database (Optional)
+To persist the SQLite database across container restarts:
+```bash
+# Linux / macOS / Git Bash
+docker run --rm -p 8000:8000 \
+  -v kanban-data:/data \
+  -e DATABASE_URL=sqlite:////data/kanban.db \
+  --name kanban-bro kanban-bro:latest
+```
+
+```powershell
+# Windows PowerShell
+docker run --rm -p 8000:8000 `
+  -v kanban-data:/data `
+  -e DATABASE_URL=sqlite:////data/kanban.db `
+  --name kanban-bro kanban-bro:latest
+```
+
+### 4. Access the Application
+- **Web Application & Frontend**: http://localhost:8000
+- **API Health Check**: http://localhost:8000/api/health
+- **Interactive Swagger Docs**: http://localhost:8000/docs
+
 
 ## 🛠️ Manual Run
 
