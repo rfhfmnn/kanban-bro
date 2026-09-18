@@ -21,7 +21,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: kanban-app
+    image: kanban-bro-app:latest
+    container_name: kanban-bro-app
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://sdip:sdip@postgres:5432/sdip
