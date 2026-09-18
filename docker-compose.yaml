@@ -1,7 +1,7 @@
 services:
-  db:
+  postgres:
     image: postgres:16-alpine
-    container_name: interview-canvas-db
+    container_name: kanban-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: sdip
@@ -10,7 +10,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - interview-canvas-pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sdip -d sdip"]
       interval: 5s
@@ -21,16 +21,16 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: kanban-bro
+    container_name: kanban-app
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://sdip:sdip@db:5432/sdip
+      DATABASE_URL: postgresql://sdip:sdip@postgres:5432/sdip
       AUTO_SEED: "true"
     ports:
       - "8000:8000"
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
 
 volumes:
-  interview-canvas-pgdata:
+  postgres_data:
